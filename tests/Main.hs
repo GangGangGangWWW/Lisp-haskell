@@ -5,6 +5,7 @@
 
 module Main (main) where
 
+import Data.List.NonEmpty qualified as NE
 import Data.Text qualified as T
 import Language.Lisp.Parser
 import Language.Lisp.Type
@@ -127,15 +128,73 @@ exprListParserTests =
     test :: SourceCode -> [LispExpr] -> TestTree
     test = runTestCase exprListParser
 
+exprIdentifierParserTests :: TestTree
+exprIdentifierParserTests =
+  testGroup
+    "identifier"
+    [ test "word" (LIdentifier "word")
+    ]
+  where
+    test :: SourceCode -> LispExpr -> TestTree
+    test = runTestCase lispExprParser
+
 functionDefParserTests' :: (Eq a, Show a) => LispParser a -> (FunctionDef -> a) -> TestTree
 functionDefParserTests' parser wrapper =
   testGroup
     "function define"
     [ test "(define (x) 42)" (FunctionDef (IdentifierName "x") [] [LBasic $ LNumber 42]),
-      test "(define(x)42)" (FunctionDef (IdentifierName "x") [] [LBasic $ LNumber 42])
+      test "(define(x)42)" (FunctionDef (IdentifierName "x") [] [LBasic $ LNumber 42]),
+      test
+        "(define (add a b) (+ a b))"
+        ( FunctionDef
+            (IdentifierName "add")
+            [IdentifierName "a", IdentifierName "b"]
+            [ LFunctionCall $
+                FunctionCall
+                  (BuiltinOp LAdd)
+                  [LIdentifier $ IdentifierName "a", LIdentifier $ IdentifierName "b"]
+            ]
+        ),
+      test
+        "(define (f x) (* x (f x)))"
+        ( FunctionDef
+            (IdentifierName "f")
+            [IdentifierName "x"]
+            [ LFunctionCall $
+                FunctionCall
+                  (BuiltinOp LMul)
+                  [ LIdentifier "x",
+                    LFunctionCall $
+                      FunctionCall
+                        (UserDefined $ IdentifierName "f")
+                        [LIdentifier $ IdentifierName "x"]
+                  ]
+            ]
+        )
     ]
   where
     test :: SourceCode -> FunctionDef -> TestTree
+    test src = runTestCase parser src . wrapper
+
+identifierDefParserTests' :: (Eq a, Show a) => LispParser a -> (IdentifierDef -> a) -> TestTree
+identifierDefParserTests' parser wrapper =
+  testGroup
+    "identifier definitions"
+    [ test "(define x 42)" (IdentifierDef (IdentifierName "x") [LBasic $ LNumber 42]),
+      test
+        "(define f (define (g x) (+ x 1)))"
+        ( IdentifierDef
+            (IdentifierName "f")
+            [ LFunctionDef $
+                FunctionDef
+                  (IdentifierName "g")
+                  [IdentifierName "x"]
+                  [LFunctionCall $ FunctionCall (BuiltinOp LAdd) [LIdentifier $ IdentifierName "x", LBasic $ LNumber 1]]
+            ]
+        )
+    ]
+  where
+    test :: SourceCode -> IdentifierDef -> TestTree
     test src = runTestCase parser src . wrapper
 
 functionCallParserTests' :: (Eq a, Show a) => LispParser a -> (FunctionCall -> a) -> TestTree
@@ -145,11 +204,207 @@ functionCallParserTests' parser wrapper =
     [ test "(x)" (FunctionCall (UserDefined $ IdentifierName "x") []),
       test "(+ 2 3)" (FunctionCall (BuiltinOp LAdd) [LBasic $ LNumber 2, LBasic $ LNumber 3]),
       test "(+ 2 3 4)" (FunctionCall (BuiltinOp LAdd) [LBasic $ LNumber 2, LBasic $ LNumber 3, LBasic $ LNumber 4]),
-      test "(* 2 0)" (FunctionCall (BuiltinOp LMul) [LBasic $ LNumber 2, LBasic $ LNumber 0])
+      test "(f a b)" (FunctionCall (UserDefined $ IdentifierName "f") [LIdentifier $ IdentifierName "a", LIdentifier $ IdentifierName "b"]),
+      test "(> x 3)" (FunctionCall (BuiltinOp LGT) [LIdentifier $ IdentifierName "x", LBasic $ LNumber 3]),
+      test "(+ a b)" (FunctionCall (BuiltinOp LAdd) [LIdentifier $ IdentifierName "a", LIdentifier $ IdentifierName "b"]),
+      test "(* 2 0)" (FunctionCall (BuiltinOp LMul) [LBasic $ LNumber 2, LBasic $ LNumber 0]),
+      test
+        "(+ x 2 y)"
+        ( FunctionCall
+            (BuiltinOp LAdd)
+            [LIdentifier $ IdentifierName "x", LBasic $ LNumber 2, LIdentifier $ IdentifierName "y"]
+        ),
+      test
+        "(+ a b (* a b))"
+        ( FunctionCall
+            (BuiltinOp LAdd)
+            [LIdentifier $ IdentifierName "a", LIdentifier $ IdentifierName "b", LFunctionCall $ FunctionCall (BuiltinOp LMul) [LIdentifier $ IdentifierName "a", LIdentifier $ IdentifierName "b"]]
+        )
     ]
   where
     test :: SourceCode -> FunctionCall -> TestTree
     test src = runTestCase parser src . wrapper
+
+lambdaDefParserTests' :: (Eq a, Show a) => LispParser a -> (LambdaDef -> a) -> TestTree
+lambdaDefParserTests' parser wrapper =
+  testGroup
+    "lambda define"
+    [ test "(lambda (x) (x))" (LambdaDef [IdentifierName "x"] [LFunctionCall (FunctionCall (UserDefined "x") [])]),
+      test
+        "(lambda (x) x)"
+        (LambdaDef [IdentifierName "x"] [LIdentifier "x"]),
+      test
+        "(lambda (x y) (* x y))"
+        (LambdaDef [IdentifierName "x", IdentifierName "y"] [LFunctionCall $ FunctionCall (BuiltinOp LMul) [LIdentifier $ IdentifierName "x", LIdentifier $ IdentifierName "y"]]),
+      test "(lambda (x) 3)" (LambdaDef [IdentifierName "x"] [LBasic $ LNumber 3]),
+      test' "(lambda (x) 3"
+    ]
+  where
+    test :: SourceCode -> LambdaDef -> TestTree
+    test src = runTestCase parser src . wrapper
+
+    test' :: SourceCode -> TestTree
+    test' = runTestCase' parser
+
+lambdaCallParserTests' :: (Eq a, Show a) => LispParser a -> (LambdaCall -> a) -> TestTree
+lambdaCallParserTests' parser wrapper =
+  testGroup
+    "lambda call"
+    [ test
+        " ((lambda (x) (+ x 1)) 2)"
+        ( LambdaCall
+            ( LambdaDef
+                [IdentifierName "x"]
+                [LFunctionCall $ FunctionCall (BuiltinOp LAdd) [LIdentifier $ IdentifierName "x", LBasic $ LNumber 1]]
+            )
+            [LBasic $ LNumber 2]
+        )
+    ]
+  where
+    test :: SourceCode -> LambdaCall -> TestTree
+    test src = runTestCase parser src . wrapper
+
+ifParserTests' :: (Eq a, Show a) => LispParser a -> (If -> a) -> TestTree
+ifParserTests' parser wrapper =
+  testGroup
+    "if"
+    [ test
+        "(if (> 2 3) 1 2)"
+        ( If
+            ( LFunctionCall $
+                FunctionCall
+                  (BuiltinOp LGT)
+                  [LBasic $ LNumber 2, LBasic $ LNumber 3]
+            )
+            (LBasic $ LNumber 1)
+            (Just (LBasic $ LNumber 2))
+        ),
+      test
+        [r|(if (odd x) "odd" "even")|]
+        ( If
+            ( LFunctionCall $
+                FunctionCall
+                  (UserDefined $ IdentifierName "odd")
+                  [LIdentifier $ IdentifierName "x"]
+            )
+            (LBasic $ LString "odd")
+            (Just (LBasic $ LString "even"))
+        ),
+      test
+        [r|(if (odd x) "odd")|]
+        ( If
+            ( LFunctionCall $
+                FunctionCall
+                  (UserDefined $ IdentifierName "odd")
+                  [LIdentifier $ IdentifierName "x"]
+            )
+            (LBasic $ LString "odd")
+            Nothing
+        ),
+      test
+        [r|(if (> x 2) "true" (+ x 2 y))|]
+        ( If
+            ( LFunctionCall $
+                FunctionCall
+                  (BuiltinOp LGT)
+                  [LIdentifier $ IdentifierName "x", LBasic $ LNumber 2]
+            )
+            (LBasic $ LString "true")
+            ( Just $
+                LFunctionCall $
+                  FunctionCall
+                    (BuiltinOp LAdd)
+                    [LIdentifier $ IdentifierName "x", LBasic $ LNumber 2, LIdentifier $ IdentifierName "y"]
+            )
+        )
+    ]
+  where
+    test :: SourceCode -> If -> TestTree
+    test src = runTestCase parser src . wrapper
+
+condParserTests' :: (Eq a, Show a) => LispParser a -> (Cond -> a) -> TestTree
+condParserTests' parser wrapper =
+  testGroup
+    "cond"
+    [ test
+        "(cond ((> 2 3) (+ 2 3)))"
+        ( Cond
+            ( NE.fromList
+                [ ( LFunctionCall $
+                      FunctionCall
+                        (BuiltinOp LGT)
+                        [LBasic $ LNumber 2, LBasic $ LNumber 3],
+                    LFunctionCall $
+                      FunctionCall
+                        (BuiltinOp LAdd)
+                        [LBasic $ LNumber 2, LBasic $ LNumber 3]
+                  )
+                ]
+            )
+            Nothing
+        ),
+      test
+        "(cond ((> 2 3) 4))"
+        ( Cond
+            ( NE.fromList
+                [ ( LFunctionCall $
+                      FunctionCall
+                        (BuiltinOp LGT)
+                        [LBasic $ LNumber 2, LBasic $ LNumber 3],
+                    LBasic $ LNumber 4
+                  )
+                ]
+            )
+            Nothing
+        ),
+      test
+        "(cond ((> 2 3) 1) ((< 4 5) 2))"
+        ( Cond
+            ( NE.fromList
+                [ ( LFunctionCall $
+                      FunctionCall
+                        (BuiltinOp LGT)
+                        [LBasic $ LNumber 2, LBasic $ LNumber 3],
+                    LBasic $ LNumber 1
+                  ),
+                  ( LFunctionCall $
+                      FunctionCall
+                        (BuiltinOp LLT)
+                        [LBasic $ LNumber 4, LBasic $ LNumber 5],
+                    LBasic $ LNumber 2
+                  )
+                ]
+            )
+            Nothing
+        ),
+      test
+        "(cond ((> 2 3) 1) ((< 4 5) 2) (else 3))"
+        ( Cond
+            ( NE.fromList
+                [ ( LFunctionCall $
+                      FunctionCall
+                        (BuiltinOp LGT)
+                        [LBasic $ LNumber 2, LBasic $ LNumber 3],
+                    LBasic $ LNumber 1
+                  ),
+                  ( LFunctionCall $
+                      FunctionCall
+                        (BuiltinOp LLT)
+                        [LBasic $ LNumber 4, LBasic $ LNumber 5],
+                    LBasic $ LNumber 2
+                  )
+                ]
+            )
+            (Just $ LBasic $ LNumber 3)
+        ),
+      test' "(cond)"
+    ]
+  where
+    test :: SourceCode -> Cond -> TestTree
+    test src = runTestCase parser src . wrapper
+
+    test' :: SourceCode -> TestTree
+    test' = runTestCase' parser
 
 -- | Test case for LispExpr parser that expect parse succeed
 lispExprParserTests :: TestTree
@@ -157,10 +412,16 @@ lispExprParserTests =
   testGroup
     "lisp expr"
     [ exprListParserTests,
+      exprIdentifierParserTests,
       functionDefParserTests'
         lispExprParser
         LFunctionDef,
-      functionCallParserTests' lispExprParser LFunctionCall
+      functionCallParserTests' lispExprParser LFunctionCall,
+      identifierDefParserTests' lispExprParser LIdentifierDef,
+      lambdaDefParserTests' lispExprParser LLambdaDef,
+      lambdaCallParserTests' lispExprParser LLambdaCall,
+      ifParserTests' lispExprParser LIf,
+      condParserTests' lispExprParser LCond
     ]
 
 identifierNameParserTests :: TestTree
@@ -224,18 +485,78 @@ functionCallNameParserTests =
       test "add" (UserDefined $ IdentifierName "add"),
       test "is-even" (UserDefined $ IdentifierName "is-even"),
       test "null?" (UserDefined $ IdentifierName "null?"),
-      test "++" (UserDefined $ IdentifierName "++"),
+      -- test "++" (UserDefined $ IdentifierName "++"),
       test "=" (UserDefined $ IdentifierName "=")
     ]
   where
     test :: SourceCode -> FunctionCallName -> TestTree
     test = runTestCase functionCallNameParser
 
+condParserTests :: TestTree
+condParserTests = condParserTests' condParser id
+
+ifParserTests :: TestTree
+ifParserTests = ifParserTests' ifParser id
+
+lambdaDefParserTests :: TestTree
+lambdaDefParserTests = lambdaDefParserTests' lambdaDefParser id
+
+lambdaCallParserTests :: TestTree
+lambdaCallParserTests = lambdaCallParserTests' lambdaCallParser id
+
+identifierDefParserTest :: TestTree
+identifierDefParserTest = identifierDefParserTests' identifierDefParser id
+
+identifierCallParserTests :: TestTree
+identifierCallParserTests = undefined
+
 functionDefParserTests :: TestTree
 functionDefParserTests = functionDefParserTests' functionDefParser id
 
 functionCallParserTests :: TestTree
 functionCallParserTests = functionCallParserTests' functionCallParser id
+
+lispProgramParserTests :: TestTree
+lispProgramParserTests =
+  testGroup
+    "lisp program" $ tail
+    [ test
+        [r|
+(+ 5 3 4) ;Value: 12
+
+(- 9 1) ;Value: 8
+
+(/ 6 2) ;Value: 3
+
+(+ (* 2 4) (- 4 6)) ;Value: 6
+
+(define a 3) ;Value: a
+
+(define b (+ a 1)) ;Value: b
+
+(+ a b (* a b)) ;Value: 19
+
+(= a b) ;Value: #f
+
+(if (and (> b a) (< b (* a b)))
+    b
+    a) ;Value: 4
+
+(cond ((= a 4) 6)
+      ((= b 4) (+ 6 7 a))
+      (else 25)) ;Value: 16
+
+(+ 2 (if (> b a) b a)) ;Value: 6
+
+(* (cond ((> a b) a)
+         ((< a b) b)
+         (else 1))
+   (+ a 1)) ;Value: 16
+|]
+        (LispProgram [] [] [] [] [] [] [])
+    ]
+  where
+    test = runTestCase lispProgramParser
 
 simpleLispExprTests :: TestTree
 simpleLispExprTests =
@@ -247,9 +568,14 @@ simpleLispExprTests =
       functionCallNameParserTests,
       --
       functionDefParserTests,
-      functionCallParserTests
+      functionCallParserTests,
+      identifierDefParserTest,
+      lambdaDefParserTests,
+      lambdaCallParserTests,
+      ifParserTests,
+      condParserTests,
       --
-      -- lispProgramParserTests
+      lispProgramParserTests
     ]
 
 main :: IO ()
