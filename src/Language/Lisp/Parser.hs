@@ -12,7 +12,6 @@ import Language.Lisp.Type
 import Text.Megaparsec
 import Text.Megaparsec.Char
 import Text.Megaparsec.Char.Lexer qualified as L
-import Text.Read (readMaybe)
 
 type LispParser = Parsec Void SourceCode
 
@@ -95,7 +94,7 @@ functionDefParser = parens $ do
 
 functionCallParser :: LispParser FunctionCall
 functionCallParser = parens $ do
-  name <- lexeme functionCallNameParser
+  name <- lexeme identifierNameParser
   args <- many lispExprParser
   return $ FunctionCall name args
 
@@ -164,39 +163,6 @@ lispExprParser =
         LIf <$> ifParser,
         LCond <$> condParser
       ]
-
-functionCallNameParser :: LispParser FunctionCallName
-functionCallNameParser =
-  choice
-    [ BuiltinOp <$> try lispBuiltinOpParser,
-      UserDefined <$> identifierNameParser
-    ]
-  where
-    lispBuiltinOpParser :: LispParser LispBuiltinOp
-    lispBuiltinOpParser = do
-      op <-
-        choice $
-          map
-            (try . symbol)
-            [ "+",
-              "-",
-              "*",
-              "/",
-              "%",
-              "and",
-              "or",
-              "xor",
-              "==",
-              "!=",
-              ">=",
-              "<=",
-              ">",
-              "<"
-            ]
-      let res = readMaybe (T.unpack $ T.strip op)
-      case res of
-        Just op' -> return op'
-        Nothing -> fail "Unknown builtin operator" -- This should never happen since we are using `choice` combinator
 
 lispProgramParser :: LispParser LispProgram
 lispProgramParser = group <$> many parser

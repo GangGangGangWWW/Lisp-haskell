@@ -151,7 +151,7 @@ functionDefParserTests' parser wrapper =
             [IdentifierName "a", IdentifierName "b"]
             [ LFunctionCall $
                 FunctionCall
-                  (BuiltinOp LAdd)
+                  "+"
                   [LIdentifier $ IdentifierName "a", LIdentifier $ IdentifierName "b"]
             ]
         ),
@@ -162,11 +162,11 @@ functionDefParserTests' parser wrapper =
             [IdentifierName "x"]
             [ LFunctionCall $
                 FunctionCall
-                  (BuiltinOp LMul)
+                  "*"
                   [ LIdentifier "x",
                     LFunctionCall $
                       FunctionCall
-                        (UserDefined $ IdentifierName "f")
+                        (IdentifierName "f")
                         [LIdentifier $ IdentifierName "x"]
                   ]
             ]
@@ -189,7 +189,7 @@ identifierDefParserTests' parser wrapper =
                 FunctionDef
                   (IdentifierName "g")
                   [IdentifierName "x"]
-                  [LFunctionCall $ FunctionCall (BuiltinOp LAdd) [LIdentifier $ IdentifierName "x", LBasic $ LNumber 1]]
+                  [LFunctionCall $ FunctionCall "+" [LIdentifier $ IdentifierName "x", LBasic $ LNumber 1]]
             ]
         )
     ]
@@ -201,24 +201,24 @@ functionCallParserTests' :: (Eq a, Show a) => LispParser a -> (FunctionCall -> a
 functionCallParserTests' parser wrapper =
   testGroup
     "function call"
-    [ test "(x)" (FunctionCall (UserDefined $ IdentifierName "x") []),
-      test "(+ 2 3)" (FunctionCall (BuiltinOp LAdd) [LBasic $ LNumber 2, LBasic $ LNumber 3]),
-      test "(+ 2 3 4)" (FunctionCall (BuiltinOp LAdd) [LBasic $ LNumber 2, LBasic $ LNumber 3, LBasic $ LNumber 4]),
-      test "(f a b)" (FunctionCall (UserDefined $ IdentifierName "f") [LIdentifier $ IdentifierName "a", LIdentifier $ IdentifierName "b"]),
-      test "(> x 3)" (FunctionCall (BuiltinOp LGT) [LIdentifier $ IdentifierName "x", LBasic $ LNumber 3]),
-      test "(+ a b)" (FunctionCall (BuiltinOp LAdd) [LIdentifier $ IdentifierName "a", LIdentifier $ IdentifierName "b"]),
-      test "(* 2 0)" (FunctionCall (BuiltinOp LMul) [LBasic $ LNumber 2, LBasic $ LNumber 0]),
+    [ test "(x)" (FunctionCall (IdentifierName "x") []),
+      test "(+ 2 3)" (FunctionCall "+" [LBasic $ LNumber 2, LBasic $ LNumber 3]),
+      test "(+ 2 3 4)" (FunctionCall "+" [LBasic $ LNumber 2, LBasic $ LNumber 3, LBasic $ LNumber 4]),
+      test "(f a b)" (FunctionCall (IdentifierName "f") [LIdentifier $ IdentifierName "a", LIdentifier $ IdentifierName "b"]),
+      test "(> x 3)" (FunctionCall ">" [LIdentifier $ IdentifierName "x", LBasic $ LNumber 3]),
+      test "(+ a b)" (FunctionCall "+" [LIdentifier $ IdentifierName "a", LIdentifier $ IdentifierName "b"]),
+      test "(* 2 0)" (FunctionCall "*" [LBasic $ LNumber 2, LBasic $ LNumber 0]),
       test
         "(+ x 2 y)"
         ( FunctionCall
-            (BuiltinOp LAdd)
+            "+"
             [LIdentifier $ IdentifierName "x", LBasic $ LNumber 2, LIdentifier $ IdentifierName "y"]
         ),
       test
         "(+ a b (* a b))"
         ( FunctionCall
-            (BuiltinOp LAdd)
-            [LIdentifier $ IdentifierName "a", LIdentifier $ IdentifierName "b", LFunctionCall $ FunctionCall (BuiltinOp LMul) [LIdentifier $ IdentifierName "a", LIdentifier $ IdentifierName "b"]]
+            "+"
+            [LIdentifier $ IdentifierName "a", LIdentifier $ IdentifierName "b", LFunctionCall $ FunctionCall "*" [LIdentifier $ IdentifierName "a", LIdentifier $ IdentifierName "b"]]
         )
     ]
   where
@@ -229,13 +229,13 @@ lambdaDefParserTests' :: (Eq a, Show a) => LispParser a -> (LambdaDef -> a) -> T
 lambdaDefParserTests' parser wrapper =
   testGroup
     "lambda define"
-    [ test "(lambda (x) (x))" (LambdaDef [IdentifierName "x"] [LFunctionCall (FunctionCall (UserDefined "x") [])]),
+    [ test "(lambda (x) (x))" (LambdaDef [IdentifierName "x"] [LFunctionCall (FunctionCall "x" [])]),
       test
         "(lambda (x) x)"
         (LambdaDef [IdentifierName "x"] [LIdentifier "x"]),
       test
         "(lambda (x y) (* x y))"
-        (LambdaDef [IdentifierName "x", IdentifierName "y"] [LFunctionCall $ FunctionCall (BuiltinOp LMul) [LIdentifier $ IdentifierName "x", LIdentifier $ IdentifierName "y"]]),
+        (LambdaDef [IdentifierName "x", IdentifierName "y"] [LFunctionCall $ FunctionCall "*" [LIdentifier $ IdentifierName "x", LIdentifier $ IdentifierName "y"]]),
       test "(lambda (x) 3)" (LambdaDef [IdentifierName "x"] [LBasic $ LNumber 3]),
       test' "(lambda (x) 3"
     ]
@@ -255,7 +255,7 @@ lambdaCallParserTests' parser wrapper =
         ( LambdaCall
             ( LambdaDef
                 [IdentifierName "x"]
-                [LFunctionCall $ FunctionCall (BuiltinOp LAdd) [LIdentifier $ IdentifierName "x", LBasic $ LNumber 1]]
+                [LFunctionCall $ FunctionCall "+" [LIdentifier $ IdentifierName "x", LBasic $ LNumber 1]]
             )
             [LBasic $ LNumber 2]
         )
@@ -273,7 +273,7 @@ ifParserTests' parser wrapper =
         ( If
             ( LFunctionCall $
                 FunctionCall
-                  (BuiltinOp LGT)
+                  ">"
                   [LBasic $ LNumber 2, LBasic $ LNumber 3]
             )
             (LBasic $ LNumber 1)
@@ -284,7 +284,7 @@ ifParserTests' parser wrapper =
         ( If
             ( LFunctionCall $
                 FunctionCall
-                  (UserDefined $ IdentifierName "odd")
+                  (IdentifierName "odd")
                   [LIdentifier $ IdentifierName "x"]
             )
             (LBasic $ LString "odd")
@@ -295,7 +295,7 @@ ifParserTests' parser wrapper =
         ( If
             ( LFunctionCall $
                 FunctionCall
-                  (UserDefined $ IdentifierName "odd")
+                  (IdentifierName "odd")
                   [LIdentifier $ IdentifierName "x"]
             )
             (LBasic $ LString "odd")
@@ -306,14 +306,14 @@ ifParserTests' parser wrapper =
         ( If
             ( LFunctionCall $
                 FunctionCall
-                  (BuiltinOp LGT)
+                  ">"
                   [LIdentifier $ IdentifierName "x", LBasic $ LNumber 2]
             )
             (LBasic $ LString "true")
             ( Just $
                 LFunctionCall $
                   FunctionCall
-                    (BuiltinOp LAdd)
+                    "+"
                     [LIdentifier $ IdentifierName "x", LBasic $ LNumber 2, LIdentifier $ IdentifierName "y"]
             )
         )
@@ -332,11 +332,11 @@ condParserTests' parser wrapper =
             ( NE.fromList
                 [ ( LFunctionCall $
                       FunctionCall
-                        (BuiltinOp LGT)
+                        ">"
                         [LBasic $ LNumber 2, LBasic $ LNumber 3],
                     LFunctionCall $
                       FunctionCall
-                        (BuiltinOp LAdd)
+                        "+"
                         [LBasic $ LNumber 2, LBasic $ LNumber 3]
                   )
                 ]
@@ -349,7 +349,7 @@ condParserTests' parser wrapper =
             ( NE.fromList
                 [ ( LFunctionCall $
                       FunctionCall
-                        (BuiltinOp LGT)
+                        ">"
                         [LBasic $ LNumber 2, LBasic $ LNumber 3],
                     LBasic $ LNumber 4
                   )
@@ -363,13 +363,13 @@ condParserTests' parser wrapper =
             ( NE.fromList
                 [ ( LFunctionCall $
                       FunctionCall
-                        (BuiltinOp LGT)
+                        ">"
                         [LBasic $ LNumber 2, LBasic $ LNumber 3],
                     LBasic $ LNumber 1
                   ),
                   ( LFunctionCall $
                       FunctionCall
-                        (BuiltinOp LLT)
+                        "<"
                         [LBasic $ LNumber 4, LBasic $ LNumber 5],
                     LBasic $ LNumber 2
                   )
@@ -383,13 +383,13 @@ condParserTests' parser wrapper =
             ( NE.fromList
                 [ ( LFunctionCall $
                       FunctionCall
-                        (BuiltinOp LGT)
+                        ">"
                         [LBasic $ LNumber 2, LBasic $ LNumber 3],
                     LBasic $ LNumber 1
                   ),
                   ( LFunctionCall $
                       FunctionCall
-                        (BuiltinOp LLT)
+                        "<"
                         [LBasic $ LNumber 4, LBasic $ LNumber 5],
                     LBasic $ LNumber 2
                   )
@@ -464,34 +464,6 @@ identifierNameParserTests =
     test' :: SourceCode -> TestTree
     test' = runTestCase' identifierNameParser
 
-functionCallNameParserTests :: TestTree
-functionCallNameParserTests =
-  testGroup
-    "function call name"
-    [ test "+" (BuiltinOp LAdd),
-      test "-" (BuiltinOp LSub),
-      test "*" (BuiltinOp LMul),
-      test "/" (BuiltinOp LDiv),
-      test "%" (BuiltinOp LRem),
-      test "and" (BuiltinOp LAnd),
-      test "or" (BuiltinOp LOr),
-      test "xor" (BuiltinOp LXor),
-      test "==" (BuiltinOp LEq),
-      test "!=" (BuiltinOp LNeq),
-      test ">" (BuiltinOp LGT),
-      test ">=" (BuiltinOp LGTE),
-      test "<" (BuiltinOp LLT),
-      test "<=" (BuiltinOp LLTE),
-      test "add" (UserDefined $ IdentifierName "add"),
-      test "is-even" (UserDefined $ IdentifierName "is-even"),
-      test "null?" (UserDefined $ IdentifierName "null?"),
-      -- test "++" (UserDefined $ IdentifierName "++"),
-      test "=" (UserDefined $ IdentifierName "=")
-    ]
-  where
-    test :: SourceCode -> FunctionCallName -> TestTree
-    test = runTestCase functionCallNameParser
-
 condParserTests :: TestTree
 condParserTests = condParserTests' condParser id
 
@@ -519,7 +491,7 @@ functionCallParserTests = functionCallParserTests' functionCallParser id
 lispProgramParserTests :: TestTree
 lispProgramParserTests =
   testGroup
-    "lisp program" $ tail
+    "lisp program"
     [ test
         [r|
 (+ 5 3 4) ;Value: 12
@@ -553,6 +525,25 @@ lispProgramParserTests =
          (else 1))
    (+ a 1)) ;Value: 16
 |]
+        (LispProgram [] [] [] [] [] [] []),
+      test
+        [r|
+(define (fib n)
+  (fib-iter 1 0 0 1 n))
+(define (fib-iter a b p q count)
+  (cond ((= count 0) b)
+        ((even? count)
+         (fib-iter a
+                   b
+                   (+ (square p) (square q))     ; compute p'
+                   (+ (* 2 p q) (square q))    ; compute q'
+                   (/ count 2)))
+        (else (fib-iter (+ (* b q) (* a q) (* a p))
+                        (+ (* b p) (* a q))
+                        p
+                        q
+                        (- count 1)))))
+|]
         (LispProgram [] [] [] [] [] [] [])
     ]
   where
@@ -565,7 +556,6 @@ simpleLispExprTests =
     [ basicTypeParserTests,
       lispExprParserTests,
       identifierNameParserTests,
-      functionCallNameParserTests,
       --
       functionDefParserTests,
       functionCallParserTests,
