@@ -219,7 +219,8 @@ functionCallParserTests' parser wrapper =
         ( FunctionCall
             "+"
             [LIdentifier $ IdentifierName "a", LIdentifier $ IdentifierName "b", LFunctionCall $ FunctionCall "*" [LIdentifier $ IdentifierName "a", LIdentifier $ IdentifierName "b"]]
-        )
+        ),
+      test "(+ 1 (* 2 x))" (FunctionCall "+" [LBasic (LNumber 1.0), LFunctionCall (FunctionCall "*" [LBasic (LNumber 2.0), LIdentifier "x"])])
     ]
   where
     test :: SourceCode -> FunctionCall -> TestTree

@@ -23,18 +23,22 @@ common warnings
 library
     import:           warnings
     exposed-modules:
-        Language.Lisp.CodeGen
-        Language.Lisp.Error
+        Language.Lisp.Interpreter
         Language.Lisp.Parser
+        Language.Lisp.Semantic.Analyser
+        Language.Lisp.Semantic.Type
         Language.Lisp.Type
+
 
     -- other-modules:
     -- other-extensions:
     build-depends:
-        , base          ^>=4.18.0.0
+        , base        ^>=4.18.0.0
         , containers
+        , extra
         , megaparsec
         , mtl
+        , syb
         , text
 
     hs-source-dirs:   src
@@ -47,8 +51,11 @@ executable lisp-hs
     -- other-modules:
     -- other-extensions:
     build-depends:
-        , base     ^>=4.18.0.0
+        , base                  ^>=4.18.0.0
         , lisp-hs
+        , mtl
+        , optparse-applicative
+        , text
 
     hs-source-dirs:   exe
     default-language: GHC2021

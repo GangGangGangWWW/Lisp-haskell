@@ -2,6 +2,7 @@
 
 module Language.Lisp.Type where
 
+import Data.Data (Data)
 import Data.List.NonEmpty qualified as NE
 import Data.String (IsString)
 import Data.Text qualified as T
@@ -21,7 +22,7 @@ data LispBasicType
     LString LispString
   | -- | Example: @#t@, @#f@
     LBoolean Bool
-  deriving (Eq, Show)
+  deriving (Eq, Show, Ord, Data)
 
 data LispExpr
   = LBasic LispBasicType
@@ -34,11 +35,11 @@ data LispExpr
   | LLambdaCall LambdaCall
   | LCond Cond
   | LIdentifier IdentifierName
-  deriving (Eq, Show)
+  deriving (Eq, Show, Ord)
 
-newtype IdentifierName = IdentifierName LispString
+newtype IdentifierName = IdentifierName {getName :: LispString}
   deriving newtype (Show)
-  deriving (Eq, IsString)
+  deriving (Eq, IsString, Ord, Data)
 
 data Cond = Cond
   { -- | Cond cases
@@ -46,7 +47,7 @@ data Cond = Cond
     -- | Cond else branch
     condElse :: Maybe LispExpr
   }
-  deriving (Eq, Show)
+  deriving (Eq, Show, Ord)
 
 data If = If
   { -- | If condition
@@ -56,7 +57,7 @@ data If = If
     -- | Else branch
     lispElse :: Maybe LispExpr
   }
-  deriving (Eq, Show)
+  deriving (Eq, Show, Ord)
 
 data LambdaDef = LambdaDef
   { -- | Lambda arguments
@@ -64,7 +65,7 @@ data LambdaDef = LambdaDef
     -- | Lambda body
     lambdaBody :: NE.NonEmpty LispExpr
   }
-  deriving (Eq, Show)
+  deriving (Eq, Show, Ord)
 
 data LambdaCall = LambdaCall
   { -- | Lambda definition
@@ -72,7 +73,7 @@ data LambdaCall = LambdaCall
     -- | Lambda call arguments
     lambdaCallArgs :: [LispExpr]
   }
-  deriving (Eq, Show)
+  deriving (Eq, Show, Ord)
 
 data IdentifierDef = IdentifierDef
   { -- | Identifier name
@@ -80,13 +81,13 @@ data IdentifierDef = IdentifierDef
     -- | Identifier body
     identifierBody :: NE.NonEmpty LispExpr
   }
-  deriving (Eq, Show)
+  deriving (Eq, Show, Ord)
 
 newtype IdentifierCall = IdentifierCall
   { -- | Identifier name
     identifierCallName :: IdentifierName
   }
-  deriving (Eq, Show)
+  deriving (Eq, Show, Ord)
 
 data FunctionDef = FunctionDef
   { -- | Function name
@@ -96,7 +97,7 @@ data FunctionDef = FunctionDef
     -- | Function body
     functionBody :: NE.NonEmpty LispExpr
   }
-  deriving (Eq, Show)
+  deriving (Eq, Show, Ord)
 
 data FunctionCall = FunctionCall
   { -- | Function name
@@ -104,7 +105,7 @@ data FunctionCall = FunctionCall
     -- | Function call arguments
     functionCallArgs :: [LispExpr]
   }
-  deriving (Eq, Show)
+  deriving (Eq, Show, Ord)
 
 data LispProgram = LispProgram
   { -- | Top level function definitions, like @(define (f a b) (+ a b))@
@@ -122,4 +123,4 @@ data LispProgram = LispProgram
     -- | Top level cond calls, like @(cond ((> x 0) "positive") (else "non-positive"))@
     conds :: [Cond]
   }
-  deriving (Eq, Show)
+  deriving (Eq, Show, Ord)
