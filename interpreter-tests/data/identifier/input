@@ -1,0 +1,5 @@
+(define (f)
+    (define x 3)
+    (display x))
+
+(f)

@@ -1,0 +1,8 @@
+(define map
+  (lambda (lst f)
+    (if (null? lst)
+        '()
+        (cons (f (car lst)) (map (cdr lst) f)))))
+
+(displayln (map '(1 2 3 4 5) (lambda (x) (* x x))))
+(displayln (map '(1 2 3 4 5) (lambda (x) (+ x 1))))

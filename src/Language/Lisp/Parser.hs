@@ -31,7 +31,7 @@ parens :: LispParser a -> LispParser a
 parens = between (symbol "(") (symbol ")")
 
 identifierSpecialSymbols :: [Char]
-identifierSpecialSymbols = ['+', '-', '*', '/', '?', '>', '<', '=']
+identifierSpecialSymbols = ['+', '-', '*', '/', '?', '>', '<', '=', '%']
 
 reservedKeywords :: (IsString s) => [s]
 reservedKeywords = ["if", "define", "lambda", "cond", "else"]

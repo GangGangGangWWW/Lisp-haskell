@@ -1,0 +1,46 @@
+(define (add x y)
+  (+ x y))
+
+(define (subtract x y)
+  (- x y))
+
+(display "Testing add function: ")
+(displayln (add 3 4))
+
+(display "Testing subtract function: ")
+(displayln (subtract 10 5))
+;; Function declaration to calculate the square of a number
+(define (square x)
+  (* x x))
+
+;; Function declaration to check if a number is positive
+(define (positive? x)
+  (> x 0))
+
+;; Function declaration to calculate the factorial of a number
+(define (factorial n)
+  (if (== n 0)
+      1
+      (* n (factorial (- n 1)))))
+
+;; Function declaration to reverse a list
+(define (reverse-list lst)
+  (if (null? lst)
+      '()
+      (append (reverse-list (cdr lst)) (list (car lst)))))
+
+;; Function call to calculate the square of 5
+(display "Square of 5: ")
+(displayln (square 5)) ; Output: 25
+
+;; Function call to check if -10 is positive
+(display "Is -10 positive? ")
+(displayln (positive? -10)) ; Output: #f
+
+;; Function call to calculate the factorial of 4
+(display "Factorial of 4: ")
+(displayln (factorial 4)) ; Output: 24
+
+;; Function call to reverse a list
+(display "Reverse of (1 2 3 4): ")
+(displayln (reverse-list '(1 2 3 4))) ; Output: (4 3 2 1)

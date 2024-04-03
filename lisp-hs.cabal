@@ -23,12 +23,13 @@ common warnings
 library
     import:           warnings
     exposed-modules:
+        Language.Lisp.Error
         Language.Lisp.Interpreter
         Language.Lisp.Parser
         Language.Lisp.Semantic.Analyser
         Language.Lisp.Semantic.Type
         Language.Lisp.Type
-
+        Language.Lisp.Util
 
     -- other-modules:
     -- other-extensions:
@@ -77,5 +78,24 @@ test-suite lisp-hs-test
         , raw-strings-qq
         , tasty
         , tasty-golden
+        , tasty-hunit
+        , text
+
+test-suite lisp-hs-interpreter-test
+    import:           warnings
+    default-language: GHC2021
+
+    -- other-modules:
+    -- other-extensions:
+    type:             exitcode-stdio-1.0
+    hs-source-dirs:   interpreter-tests
+    main-is:          Main.hs
+    build-depends:
+        , base
+        , extra
+        , filepath
+        , lisp-hs
+        , mtl
+        , tasty
         , tasty-hunit
         , text

@@ -19,7 +19,6 @@ import Data.Maybe (fromMaybe)
 import Data.String (IsString)
 import Data.Text qualified as T
 import GHC.IsList
-import GHC.Read (choose)
 import Language.Lisp.Type (IdentifierName, LispBasicType (..), getName)
 import Language.Lisp.Type qualified as PT
 import Text.Read hiding (get)
@@ -170,54 +169,57 @@ data LispBuiltinOp
   deriving (Eq, Show, Ord, Data)
 
 instance Read LispBuiltinOp where
-  readPrec =
-    choose
-      [ ("+", return LAdd),
-        ("-", return LSub),
-        ("*", return LMul),
-        ("/", return LDiv),
-        ("%", return LRem),
-        ("and", return LAnd),
-        ("or", return LOr),
-        ("xor", return LXor),
-        ("==", return LEq),
-        ("!=", return LNeq),
-        (">", return LGT),
-        (">=", return LGTE),
-        ("<", return LLT),
-        ("<=", return LLTE),
-        ("display", return LDisplay),
-        ("displayln", return LDisplayLn),
-        ("error", return LError),
-        ("exit", return LExit),
-        ("load", return LLoad),
-        ("print", return LPrint),
-        ("atom?", return LAtomQ),
-        ("boolean?", return LBooleanQ),
-        ("integer?", return LIntegerQ),
-        ("number?", return LNumberQ),
-        ("list?", return LListQ),
-        ("procedure?", return LProcedureQ),
-        ("string?", return LStringQ),
-        ("null?", return LNullQ),
-        ("symbol?", return LSymbolQ),
-        ("car", return LCar),
-        ("cdr", return LCdr),
-        ("cons", return LCons),
-        ("length", return LLength),
-        ("list", return LList),
-        ("append", return LAppend),
-        ("abs", return LAbs),
-        ("eq?", return LEqQ),
-        ("not", return LNot),
-        ("format", return LFormat),
-        ("to-number", return LToNumber),
-        ("to-string", return LToString),
-        ("to-boolean", return LToBoolean),
-        ("read", return LRead),
-        ("nth", return LNth),
-        ("sqrt", return LSqrt)
-      ]
+  readsPrec _ s = case lookup s choose of
+    Just op -> [(op, "")]
+    Nothing -> []
+    where
+      choose =
+        [ ("+", LAdd),
+          ("-", LSub),
+          ("*", LMul),
+          ("/", LDiv),
+          ("%", LRem),
+          ("and", LAnd),
+          ("or", LOr),
+          ("xor", LXor),
+          ("==", LEq),
+          ("!=", LNeq),
+          (">", LGT),
+          (">=", LGTE),
+          ("<", LLT),
+          ("<=", LLTE),
+          ("display", LDisplay),
+          ("displayln", LDisplayLn),
+          ("error", LError),
+          ("exit", LExit),
+          ("load", LLoad),
+          ("print", LPrint),
+          ("atom?", LAtomQ),
+          ("boolean?", LBooleanQ),
+          ("integer?", LIntegerQ),
+          ("number?", LNumberQ),
+          ("list?", LListQ),
+          ("procedure?", LProcedureQ),
+          ("string?", LStringQ),
+          ("null?", LNullQ),
+          ("symbol?", LSymbolQ),
+          ("car", LCar),
+          ("cdr", LCdr),
+          ("cons", LCons),
+          ("length", LLength),
+          ("list", LList),
+          ("append", LAppend),
+          ("abs", LAbs),
+          ("eq?", LEqQ),
+          ("not", LNot),
+          ("format", LFormat),
+          ("to-number", LToNumber),
+          ("to-string", LToString),
+          ("to-boolean", LToBoolean),
+          ("read", LRead),
+          ("nth", LNth),
+          ("sqrt", LSqrt)
+        ]
 
 builtinOpList :: (IsString s) => [s]
 builtinOpList =
@@ -745,6 +747,7 @@ typeMatch (MultiParamType mt) t =
   where
     multiParamTypeMatch mt (FunctionType cur others) = mt == AnyType || cur == AnyType || (mt == cur && multiParamTypeMatch mt others)
     multiParamTypeMatch mt t = t == AnyType || mt == AnyType || mt == t
+typeMatch (FunctionType a b) (FunctionType c d) = a == AnyType || c == AnyType || (a == c && typeMatch b d)
 typeMatch a b = a == AnyType || b == AnyType || a == b
 
 -- | @argsTypeMatch expected real@ returns @True@ if @real@ is equal to @expected@'s args type, otherwise @False@.
@@ -752,7 +755,7 @@ argsTypeMatch :: LispType -> [LispType] -> Bool
 argsTypeMatch t1 t2 = typeMatch (dropReturnType t1) (fromList t2)
   where
     dropReturnType :: LispType -> LispType
-    dropReturnType (FunctionType res t) = if isFunctionType t then dropReturnType t else res
+    dropReturnType (FunctionType res t) = if isFunctionType t then FunctionType res (dropReturnType t) else res
     dropReturnType a = a
 
     isFunctionType :: LispType -> Bool

@@ -52,9 +52,11 @@ runTestCase' parser s = runTestCaseImpl parser s Nothing
 
 runTestCaseImpl :: (Eq a, Show a) => LispParser a -> SourceCode -> Maybe a -> TestTree
 runTestCaseImpl parser s expected =
-  testCase (T.unpack $ escape s) $ do
+  testCase (trimName s) $ do
     s' <- insertSpacesR s
     assertEqual (T.unpack $ escape s) expected (runLispHsParserMaybe parser s')
+  where
+    trimName = T.unpack . T.strip . T.take 40 . escape
 
 basicTypeParserTests :: TestTree
 basicTypeParserTests =
@@ -450,7 +452,7 @@ identifierNameParserTests =
       test "a?b" (IdentifierName "a?b"),
       test' "a!b",
       test' "a$b",
-      test' "a%b",
+      test "a%b" (IdentifierName "a%b"),
       test "add" (IdentifierName "add"),
       test "is-even" (IdentifierName "is-even"),
       test "null?" (IdentifierName "null?"),
@@ -479,9 +481,6 @@ lambdaCallParserTests = lambdaCallParserTests' lambdaCallParser id
 
 identifierDefParserTest :: TestTree
 identifierDefParserTest = identifierDefParserTests' identifierDefParser id
-
-identifierCallParserTests :: TestTree
-identifierCallParserTests = undefined
 
 functionDefParserTests :: TestTree
 functionDefParserTests = functionDefParserTests' functionDefParser id
@@ -526,7 +525,98 @@ lispProgramParserTests =
          (else 1))
    (+ a 1)) ;Value: 16
 |]
-        (LispProgram [] [] [] [] [] [] []),
+        ( LispProgram
+            { functionDefs = [],
+              functionCalls =
+                [ FunctionCall
+                    { functionCallName = "+",
+                      functionCallArgs = [LBasic (LNumber 5.0), LBasic (LNumber 3.0), LBasic (LNumber 4.0)]
+                    },
+                  FunctionCall {functionCallName = "-", functionCallArgs = [LBasic (LNumber 9.0), LBasic (LNumber 1.0)]},
+                  FunctionCall {functionCallName = "/", functionCallArgs = [LBasic (LNumber 6.0), LBasic (LNumber 2.0)]},
+                  FunctionCall
+                    { functionCallName = "+",
+                      functionCallArgs =
+                        [ LFunctionCall
+                            ( FunctionCall
+                                { functionCallName = "*",
+                                  functionCallArgs = [LBasic (LNumber 2.0), LBasic (LNumber 4.0)]
+                                }
+                            ),
+                          LFunctionCall (FunctionCall {functionCallName = "-", functionCallArgs = [LBasic (LNumber 4.0), LBasic (LNumber 6.0)]})
+                        ]
+                    },
+                  FunctionCall
+                    { functionCallName = "+",
+                      functionCallArgs =
+                        [ LIdentifier "a",
+                          LIdentifier "b",
+                          LFunctionCall (FunctionCall {functionCallName = "*", functionCallArgs = [LIdentifier "a", LIdentifier "b"]})
+                        ]
+                    },
+                  FunctionCall {functionCallName = "=", functionCallArgs = [LIdentifier "a", LIdentifier "b"]},
+                  FunctionCall
+                    { functionCallName = "+",
+                      functionCallArgs =
+                        [ LBasic (LNumber 2.0),
+                          LIf
+                            ( If
+                                { lispIf =
+                                    LFunctionCall
+                                      ( FunctionCall
+                                          { functionCallName = ">",
+                                            functionCallArgs = [LIdentifier "b", LIdentifier "a"]
+                                          }
+                                      ),
+                                  lispThen = LIdentifier "b",
+                                  lispElse = Just (LIdentifier "a")
+                                }
+                            )
+                        ]
+                    },
+                  FunctionCall
+                    { functionCallName = "*",
+                      functionCallArgs =
+                        [ LCond
+                            ( Cond
+                                { condCases =
+                                    ( LFunctionCall
+                                        ( FunctionCall
+                                            { functionCallName = ">",
+                                              functionCallArgs = [LIdentifier "a", LIdentifier "b"]
+                                            }
+                                        ),
+                                      LIdentifier "a"
+                                    )
+                                      NE.:| [(LFunctionCall (FunctionCall {functionCallName = "<", functionCallArgs = [LIdentifier "a", LIdentifier "b"]}), LIdentifier "b")],
+                                  condElse = Just (LBasic (LNumber 1.0))
+                                }
+                            ),
+                          LFunctionCall
+                            ( FunctionCall
+                                { functionCallName = "+",
+                                  functionCallArgs =
+                                    [ LIdentifier "a",
+                                      LBasic (LNumber 1.0)
+                                    ]
+                                }
+                            )
+                        ]
+                    }
+                ],
+              identifierDefs =
+                [ IdentifierDef
+                    { identifierName = "a",
+                      identifierBody = LBasic (LNumber 3.0) NE.:| []
+                    },
+                  IdentifierDef {identifierName = "b", identifierBody = LFunctionCall (FunctionCall {functionCallName = "+", functionCallArgs = [LIdentifier "a", LBasic (LNumber 1.0)]}) NE.:| []}
+                ],
+              identifierCalls = [],
+              lambdaCalls = [],
+              ifs = [If {lispIf = LFunctionCall (FunctionCall {functionCallName = "and", functionCallArgs = [LFunctionCall (FunctionCall {functionCallName = ">", functionCallArgs = [LIdentifier "b", LIdentifier "a"]}), LFunctionCall (FunctionCall {functionCallName = "<", functionCallArgs = [LIdentifier "b", LFunctionCall (FunctionCall {functionCallName = "*", functionCallArgs = [LIdentifier "a", LIdentifier "b"]})]})]}), lispThen = LIdentifier "b", lispElse = Just (LIdentifier "a")}],
+              conds = [Cond {condCases = (LFunctionCall (FunctionCall {functionCallName = "=", functionCallArgs = [LIdentifier "a", LBasic (LNumber 4.0)]}), LBasic (LNumber 6.0)) NE.:| [(LFunctionCall (FunctionCall {functionCallName = "=", functionCallArgs = [LIdentifier "b", LBasic (LNumber 4.0)]}), LFunctionCall (FunctionCall {functionCallName = "+", functionCallArgs = [LBasic (LNumber 6.0), LBasic (LNumber 7.0), LIdentifier "a"]}))], condElse = Just (LBasic (LNumber 25.0))}]
+            }
+        ),
       test
         [r|
 (define (fib n)
@@ -545,7 +635,46 @@ lispProgramParserTests =
                         q
                         (- count 1)))))
 |]
-        (LispProgram [] [] [] [] [] [] [])
+        ( LispProgram
+            { functionDefs =
+                [ FunctionDef
+                    { functionName = "fib",
+                      functionArgs = ["n"],
+                      functionBody =
+                        LFunctionCall
+                          ( FunctionCall
+                              { functionCallName = "fib-iter",
+                                functionCallArgs = [LBasic (LNumber 1.0), LBasic (LNumber 0.0), LBasic (LNumber 0.0), LBasic (LNumber 1.0), LIdentifier "n"]
+                              }
+                          )
+                          NE.:| []
+                    },
+                  FunctionDef
+                    { functionName = "fib-iter",
+                      functionArgs = ["a", "b", "p", "q", "count"],
+                      functionBody =
+                        LCond
+                          ( Cond
+                              { condCases =
+                                  (LFunctionCall (FunctionCall {functionCallName = "=", functionCallArgs = [LIdentifier "count", LBasic (LNumber 0.0)]}), LIdentifier "b")
+                                    NE.:| [ ( LFunctionCall (FunctionCall {functionCallName = "even?", functionCallArgs = [LIdentifier "count"]}),
+                                              LFunctionCall (FunctionCall {functionCallName = "fib-iter", functionCallArgs = [LIdentifier "a", LIdentifier "b", LFunctionCall (FunctionCall {functionCallName = "+", functionCallArgs = [LFunctionCall (FunctionCall {functionCallName = "square", functionCallArgs = [LIdentifier "p"]}), LFunctionCall (FunctionCall {functionCallName = "square", functionCallArgs = [LIdentifier "q"]})]}), LFunctionCall (FunctionCall {functionCallName = "+", functionCallArgs = [LFunctionCall (FunctionCall {functionCallName = "*", functionCallArgs = [LBasic (LNumber 2.0), LIdentifier "p", LIdentifier "q"]}), LFunctionCall (FunctionCall {functionCallName = "square", functionCallArgs = [LIdentifier "q"]})]}), LFunctionCall (FunctionCall {functionCallName = "/", functionCallArgs = [LIdentifier "count", LBasic (LNumber 2.0)]})]})
+                                            )
+                                          ],
+                                condElse = Just (LFunctionCall (FunctionCall {functionCallName = "fib-iter", functionCallArgs = [LFunctionCall (FunctionCall {functionCallName = "+", functionCallArgs = [LFunctionCall (FunctionCall {functionCallName = "*", functionCallArgs = [LIdentifier "b", LIdentifier "q"]}), LFunctionCall (FunctionCall {functionCallName = "*", functionCallArgs = [LIdentifier "a", LIdentifier "q"]}), LFunctionCall (FunctionCall {functionCallName = "*", functionCallArgs = [LIdentifier "a", LIdentifier "p"]})]}), LFunctionCall (FunctionCall {functionCallName = "+", functionCallArgs = [LFunctionCall (FunctionCall {functionCallName = "*", functionCallArgs = [LIdentifier "b", LIdentifier "p"]}), LFunctionCall (FunctionCall {functionCallName = "*", functionCallArgs = [LIdentifier "a", LIdentifier "q"]})]}), LIdentifier "p", LIdentifier "q", LFunctionCall (FunctionCall {functionCallName = "-", functionCallArgs = [LIdentifier "count", LBasic (LNumber 1.0)]})]}))
+                              }
+                          )
+                          NE.:| []
+                    }
+                ],
+              functionCalls = [],
+              identifierDefs = [],
+              identifierCalls = [],
+              lambdaCalls = [],
+              ifs = [],
+              conds = []
+            }
+        )
     ]
   where
     test = runTestCase lispProgramParser
