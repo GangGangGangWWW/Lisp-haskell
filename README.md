@@ -1,6 +1,11 @@
 # Lisp-hs
 
-A Haskell based compiler that compile fundamental lisp grammar to executable binaries.
+A Lisp interpreter implemented using Haskell language
+
+## Use instructions
+-  cabal run lisp-hs -- -i input.scm -a -s -c, in this common line input.scm is a source code file which lisp code wich supports you test.
+   And -a -s -c are the switches for pring AST, SAST and control semanticChecking.
+-  cabal run test all if you need test specific test. Please, follow "cabal test lisp-hs-interpreter -test" or "cabal test lisp-hs-test".
 
 ## Parser
 
